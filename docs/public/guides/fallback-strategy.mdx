@@ -1,0 +1,70 @@
+---
+title: "Fallback Strategy"
+description: "Multi-layer fallback chain for maximum uptime"
+icon: "life-buoy"
+---
+
+HyperFx uses a multi-layer fallback chain to maintain operation even when individual components fail.
+
+## Fallback Layers
+
+| Layer | Method | Source |
+|---|---|---|
+| **Primary** | WebSocket `ledstream-start` | Real-time LED color stream |
+| **Secondary** | WebSocket response timeout → attempt capture anyway | Same stream, degraded |
+| **Tertiary** | `final_robust_capture()` — REST `GET /json-rpc` with `serverinfo` command | Hyperion-NG JSON API |
+
+## Fallback Flow
+
+```
+WebSocket Stream
+      │
+      ├──► Success ──────────────► ✅ Use result
+      │
+      ├──► Timeout ───────────────► Try capture anyway
+      │                                  │
+      ├──► JSON Error ──────────────────► Got color? ──► Yes ──► ✅ Use result
+      │                                  │
+      ├──► WebSocketException ──────────► No
+      │                                  │
+      └──► Any Exception ───────────────► final_robust_capture()
+                                                │
+                                                ▼
+                                         GET /json-rpc serverinfo
+                                                │
+                                                ▼
+                                         activeLedColor present?
+                                                │
+                                          ┌─────┴─────┐
+                                          │           │
+                                          ▼           ▼
+                                       ✅ Use     ▶ Return None
+                                         result    ▶ Skip cycle
+```
+
+## Health Checks
+
+Every 60 seconds, HyperFx pings both services:
+
+- **Hyperion-NG**: WebSocket or JSON-RPC ping
+- **LedFx**: REST API availability check
+
+Results are logged with running sync/error counts:
+
+```
+🔄 --- Health Check ─────────────────────────
+🔄 Hyperion-NG: ✅ Connected (since 12:34:56)
+🔄 LedFx:       ✅ Connected (since 12:34:57)
+🔄 Sync count:  1423  |  Errors:  2
+🔄 Last error:  WebSocket connection timeout
+🔄 -------------------------------------------
+```
+
+## Degraded Operation
+
+In degraded mode (when fallback layers are active):
+- Color updates may be less frequent
+- Color fidelity may be reduced (REST snapshot vs. real-time stream)
+- Errors are logged but the loop continues
+
+The system recovers automatically when the primary WebSocket path succeeds again.

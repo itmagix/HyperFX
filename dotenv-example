@@ -1,0 +1,106 @@
+# Hyperion-NG → LedFx Color Sync Configuration
+# Copy this file to .env and adjust values for your setup.
+
+# ─── Backend Connection ───────────────────────────────────────────────────────
+
+## Hyperion-NG
+HYPERION_HOST=192.168.x.xx
+HYPERION_PORT=8090
+#   Hyperion-NG server address and JSON-API/WebSocket port.
+
+## LedFx
+LEDFX_HOST=192.168.x.xx
+LEDFX_PORT=8888
+#   LedFx server address and API port.
+
+## LedFx Virtual ID
+LEDFX_INSTANCE=hyperfx
+#   The URL slug for your LedFx virtual device. It's recommended to create a
+#   dedicated virtual device named "hyperfx" in the LedFx web UI (Virtuals
+#   section → "Add Virtual") so the name matches this env setting exactly.
+#
+#   Inside that virtual, add two output channels:
+#     - A "left"  light for the left  side of your LED setup
+#     - A "right" light for the right side of your LED setup
+#   This gives HyperFX the correct stereo channel mapping to sync colors.
+
+# ─── Logging ──────────────────────────────────────────────────────────────────
+
+DEBUG=false
+#   false = INFO-level logging (production).
+#   true  = DEBUG-level logging with file/line info (troubleshooting).
+#   Code default: false
+
+# ─── Sync Timing ──────────────────────────────────────────────────────────────
+
+COLOR_SAMPLES=3
+#   How many LED color samples to collect and average per sync cycle.
+#   Higher = smoother average but slower response to scene changes.
+#   2-3  = responsive for music/video
+#   5-10 = smooth for ambient/static content
+#   Code default: 3
+
+REFRESH_RATE=0.0167
+#   Seconds between color sync cycles (the refresh interval).
+#   Examples:
+#     0.0167  ≈ 60 updates/sec (responsive, higher CPU)
+#     0.0333  ≈ 30 updates/sec
+#     0.05    ≈ 20 updates/sec
+#     0.1     ≈ 10 updates/sec (gentle on CPU)
+#   Code default: 0.1
+#   Clamped to 0.01–2.0 range in code.
+
+# ─── Master Brightness ───────────────────────────────────────────────────────
+
+BRIGHTNESS=1.0
+#   Overall brightness multiplier sent to the LedFx Energy effect.
+#   Range: 0.0 (off) – 1.0 (full). Code default: 1.0
+
+# ─── Minimum Brightness Floor ────────────────────────────────────────────────
+
+MIN_BRIGHTNESS=100
+#   Ensures each RGB channel never drops below this value (0–255).
+#   When the captured color is dimmer than this floor, all channels are
+#   scaled up proportionally (preserving hue) until the brightest channel
+#   reaches this value. Pure black falls back to a warm-white floor so
+#   LedFx audio-reactive effects always have visible signal.
+#
+#   Code default: 0 (no floor, original color preserved exactly)
+#
+#   Recommended values by environment:
+#   ┌──────────────────────┬──────────────────────────────────────────────┐
+#   │ Value                │ When to use                                  │
+#   ├──────────────────────┼──────────────────────────────────────────────┤
+#   │ 0                    │ Dark room / home theater. Original colors    │
+#   │                      │ preserved; LEDs go dim during dark scenes.   │
+#   │ 30–80                │ Dim indoor lighting / mood lighting. Gentle  │
+#   │                      │ floor prevents full blackout.                │
+#   │ 80–120 (★)           │ Living room / daylight / parties. LEDs stay  │
+#   │                      │ clearly visible even in darker video scenes. │
+#   │ 120–180              │ Bright room / near windows. Strong floor for │
+#   │                      │ daytime visibility; reduces dynamic range.   │
+#   │ 180–255              │ Not recommended — washes out color variation │
+#   │                      │ and makes everything look the same.          │
+#   └──────────────────────┴──────────────────────────────────────────────┘
+#   Start at 100 and adjust down if colors feel washed out, or up if LEDs
+#   disappear during dark scenes.
+
+# ─── Dark-Color Enhancement ──────────────────────────────────────────────────
+#  Automatically brightens dark/muted colors so LEDs stay lively during
+#  indoor dance festival videos or dimly-lit content.
+
+BRIGHTNESS_ENHANCE_ENABLE=true
+#   true  = enhancement active (recommended for video content)
+#   false = colors sent as-is
+#   Code default: true
+
+BRIGHTNESS_ENHANCE_THRESHOLD=80
+#   RGB threshold (0–255). Pixels where the brightest channel is at or
+#   below this value get brightened. Lower = only very dark colors are
+#   affected. Code default: 80
+
+BRIGHTNESS_ENHANCE_FACTOR=1.5
+#   Brightening multiplier (1.0–3.0). Darker colors are boosted more
+#   aggressively (proportional to how far below the threshold they are).
+#   1.0 = off, 1.5 = moderate, 2.0+ = aggressive.
+#   Code default: 1.5

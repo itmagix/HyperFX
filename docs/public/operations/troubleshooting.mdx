@@ -1,0 +1,280 @@
+---
+title: "Troubleshooting"
+description: "Diagnostic procedures, common issue resolutions, and log message reference"
+icon: "bug"
+---
+
+## Quick Diagnostic Flow
+
+```
+Problem Detected
+     ↓
+Does the app start?     → No  → Check Python, .env, dependencies
+     ↓ Yes
+Health check PASS?      → No  → Test each service independently
+     ↓ Yes
+Colors being captured?  → No  → Check Hyperion-NG WebSocket / capture
+     ↓ Yes
+Colors reaching LedFx?  → No  → Check LEDFX_INSTANCE, LedFx API
+     ↓ Yes
+Colors look wrong?      → Yes → Tune brightness/enhancement settings
+     ↓ No
+Performance issues?     → Yes → Adjust REFRESH_RATE, COLOR_SAMPLES
+```
+
+---
+
+## App Won't Start
+
+### Quick Checks
+
+```bash
+# 1. Python version
+python --version       # Must be 3.7+
+
+# 2. Dependencies installed
+pip list | grep -E "(websockets|requests|loguru|dotenv|webcolors)"
+
+# 3. .env file exists
+ls -la .env
+
+# 4. .env contains required fields
+python -c "
+import os
+from dotenv import load_dotenv
+load_dotenv()
+print('HYPERION_HOST:', os.environ.get('HYPERION_HOST'))
+print('LEDFX_HOST:', os.environ.get('LEDFX_HOST'))
+print('LEDFX_INSTANCE:', os.environ.get('LEDFX_INSTANCE'))
+"
+
+# 5. Module import test
+python -c "import hyperfx; print('✓ Import OK')"
+```
+
+### Common Fixes
+
+```bash
+# Missing dependencies
+pip install -r requirements.txt
+
+# Create minimal .env
+cat > .env << 'EOF'
+HYPERION_HOST=localhost
+HYPERION_PORT=8090
+LEDFX_HOST=localhost
+LEDFX_PORT=8888
+LEDFX_INSTANCE=hyperfx
+DEBUG=true
+EOF
+
+# Permission denied
+chmod +x hyperfx.py
+```
+
+---
+
+## Connection Issues
+
+### Hyperion-NG Unreachable
+
+```bash
+# Test HTTP API
+curl http://localhost:8090/json-rpc -d '{"command":"serverinfo"}'
+
+# Test WebSocket directly
+python -c "
+import asyncio, websockets, json
+async def t():
+    try:
+        async with websockets.connect('ws://localhost:8090') as ws:
+            await ws.send(json.dumps({'command':'serverinfo'}))
+            print('✓ WebSocket connected:', await ws.recv())[:100]
+    except Exception as e:
+        print('✗', e)
+asyncio.run(t())
+"
+
+# Check if service is running
+sudo systemctl status hyperion
+netstat -tulpn | grep :8090
+```
+
+### LedFx Unreachable
+
+```bash
+# Test API
+curl http://localhost:8888/api/virtuals
+
+# Check service
+sudo systemctl status ledfx
+netstat -tulpn | grep :8888
+
+# Quick Python test
+python -c "
+import requests
+r = requests.get('http://localhost:8888/api/virtuals', timeout=5)
+print('✓ LedFx:', r.status_code, len(r.json()), 'virtuals')
+"
+```
+
+---
+
+## Color Sync Issues
+
+### Colors Not Updating
+
+**Symptom:** HyperFx runs but no color changes reach the LEDs.
+
+**Check:**
+
+```bash
+# 1. Verify LEDFX_INSTANCE is correct
+curl http://localhost:8888/api/virtuals | python -m json.tool
+# The 'id' field in the response must match LEDFX_INSTANCE
+
+# 2. Force a test color with curl
+curl -X POST http://localhost:8888/api/virtuals/hyperfx/effects \
+  -H "Content-Type: application/json" \
+  -d '{"type":"energy","config":{"color_high":"#FF0000","color_mids":"#FF0000","color_lows":"#FF0000","brightness":1.0,"background_brightness":0.1,"intensity":1.0}}'
+
+# 3. Run HyperFx in debug mode
+DEBUG=true python hyperfx.py
+# Look for: "✅ LedFx updated" or "⚠️ LedFx response"
+```
+
+### Wrong Colors Displayed
+
+**Symptom:** Colors are too dim, too bright, or don't match screen content.
+
+**Check:**
+
+```bash
+# 1. Test color extraction
+DEBUG=true python hyperfx.py 2>&1 | grep "Sample"
+# Look for individual sample RGB values
+
+# 2. Tune brightness settings in .env
+# - MIN_BRIGHTNESS=100  (daylight floor)
+# - BRIGHTNESS_ENHANCE_ENABLE=true
+# - BRIGHTNESS_ENHANCE_FACTOR=1.5
+# - BRIGHTNESS=1.0
+
+# 3. Check if enhancement is active
+DEBUG=true python hyperfx.py 2>&1 | grep "enhanced\|floor"
+```
+
+### Colors Freeze / Stop Changing
+
+**Symptom:** Colors worked then stopped updating.
+
+**Check:**
+
+```bash
+# 1. Check for WebSocket timeout in logs
+DEBUG=true python hyperfx.py 2>&1 | grep "WebSocket\|timeout\|retry"
+
+# 2. Manually test Hyperion stream
+python -c "
+import asyncio, websockets, json
+async def t():
+    async with websockets.connect('ws://localhost:8090') as ws:
+        await ws.send(json.dumps({'command':'ledcolors','subcommand':'ledstream-start','instance':1,'tan':1}))
+        for i in range(5):
+            msg = await asyncio.wait_for(ws.recv(), timeout=3)
+            print(f'Frame {i}: {len(msg)} bytes')
+asyncio.run(t())
+"
+```
+
+---
+
+## Performance Issues
+
+### High CPU Usage
+
+```bash
+# Solutions (in order of impact):
+# 1. Increase REFRESH_RATE (e.g., 0.1 → 0.2)
+# 2. Reduce COLOR_SAMPLES (e.g., 3 → 2)
+# 3. Set DEBUG=false
+```
+
+### Laggy / Slow Response
+
+```bash
+# Solutions:
+# 1. Lower REFRESH_RATE (e.g., 0.1 → 0.05)
+# 2. Reduce COLOR_SAMPLES to 2
+# 3. Ensure both services are on same machine or fast LAN
+```
+
+### Memory Growth
+
+HyperFx is stateless and should not leak memory. If you observe growth:
+
+```bash
+# Monitor for a few minutes
+watch -n 30 'ps aux | grep hyperfx | grep -v grep'
+```
+
+---
+
+## Log Messages Reference
+
+| Message | Meaning | Action |
+|---|---|---|
+| `💥 WebSocket connection error` | Cannot connect to Hyperion-NG | Check Hyperion service, host, port |
+| `🔧 WebSocket completed - attempting final capture` | WebSocket path failed | Check WebSocket stream, falls back to REST |
+| `✅ LedFx updated` | Color sent to LedFx successfully | Normal operation |
+| `⚠️ LedFx response (404)` | Invalid LEDFX_INSTANCE | Check virtual device ID |
+| `🌑 Black floor (warm white)` | Pure black → warm-white fallback | Normal; adjust MIN_BRIGHTNESS if needed |
+| `⚠️ Health check failed` | Cannot reach one or both services | Check network, service status |
+| `💥 Sync error` | Unexpected error in main loop | Check log context; usually transient |
+
+---
+
+## Known Issues & Workarounds
+
+### Hyperion-NG instance is hardcoded
+
+If your Hyperion-NG setup uses a non-default LED instance, you must edit `hyperfx.py` line 171.
+
+**Workaround:** Change `"instance": 1` to your instance number.
+
+### LedFx Energy effect is hardcoded
+
+HyperFx always sends the "energy" effect type. To use a different effect, modify lines 508-518 in `hyperfx.py`.
+
+### Color name lookup is expensive
+
+The `color_name()` function does a full Euclidean search across 148 CSS3 colors every time it's called. This adds ~5-10ms per call in DEBUG mode. It does not affect the signal path (only runs for logging).
+
+---
+
+## Getting Help
+
+Before seeking help, collect:
+
+1. **System info:**
+
+   ```bash
+   python --version
+   pip list | grep -E "(websockets|requests|loguru|dotenv|webcolors)"
+   uname -a
+   ```
+
+2. **Debug log output:**
+
+   ```bash
+   DEBUG=true python hyperfx.py 2>&1 | tail -100
+   ```
+
+3. **Service connectivity test:**
+
+   ```bash
+   # Hyperion status
+   curl -s http://localhost:8090/json-rpc -d '{"command":"serverinfo"}' | python -c "import sys,json; d=json.load(sys.stdin); print('success:', d.get('success'))"
+   # LedFx status
+   curl -s http://localhost:8888/api/virtuals | python -c "import sys,json; d=json.load(sys.stdin); print('virtuals:', len(d))"
+   ```

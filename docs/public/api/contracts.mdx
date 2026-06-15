@@ -1,0 +1,131 @@
+---
+title: "API Contracts"
+description: "Wire protocols for Hyperion-NG and LedFx communication"
+icon: "git-branch"
+---
+
+## Hyperion-NG WebSocket (Inbound)
+
+HyperFx connects to Hyperion-NG's WebSocket endpoint and requests the LED color stream.
+
+### Request
+
+```json
+{
+  "command": "ledcolors",
+  "subcommand": "ledstream-start",
+  "instance": 1,
+  "tan": 1
+}
+```
+
+### Response (LED Data Stream)
+
+```json
+{
+  "data": {
+    "leds": [R, G, B, R, G, B, ...]
+  }
+}
+```
+
+The `leds` array is a flat sequence of RGB triplets. Values are integers 0–255. The array length is always a multiple of 3.
+
+### WebSocket Details
+
+| Property | Value |
+|---|---|
+| URL | `ws://{HYPERION_HOST}:{HYPERION_PORT}/` |
+| Protocol | JSON over WebSocket (RFC 6455) |
+| Connection | New connection per sync cycle (not persistent) |
+| Timeout | 8 seconds max per capture session |
+
+---
+
+## Hyperion-NG JSON-RPC (Fallback)
+
+Used when the WebSocket stream is unavailable.
+
+### Request
+
+```json
+{
+  "command": "serverinfo",
+  "instance": 1
+}
+```
+
+### Response (Relevant Section)
+
+```json
+{
+  "info": {
+    "activeLedColor": [
+      {"RGB Value": [R, G, B]},
+      {"RGB Value": [R, G, B]}
+    ]
+  }
+}
+```
+
+### Endpoint Details
+
+| Property | Value |
+|---|---|
+| URL | `http://{HYPERION_HOST}:{HYPERION_PORT}/json-rpc` |
+| Method | `GET` |
+| Content-Type | `application/json` |
+
+---
+
+## LedFx REST API (Outbound)
+
+HyperFx sends processed color data to LedFx virtual devices.
+
+### Request
+
+**POST** `/api/virtuals/{LEDFX_INSTANCE}/effects`
+
+```json
+{
+  "type": "energy",
+  "config": {
+    "color_high": "#a1b2c3",
+    "color_mids": "#a1b2c3",
+    "color_lows": "#a1b2c3",
+    "brightness": 1.0,
+    "background_brightness": 0.1,
+    "intensity": 1.0
+  }
+}
+```
+
+All three color channels receive the same hex value (monochromatic Energy effect).
+
+### Endpoint Details
+
+| Property | Value |
+|---|---|
+| URL | `http://{LEDFX_HOST}:{LEDFX_PORT}/api/virtuals/{LEDFX_INSTANCE}/effects` |
+| Method | `POST` |
+| Content-Type | `application/json` |
+
+### Response
+
+LedFx returns HTTP 200 on success. The response body is not processed by HyperFx.
+
+---
+
+## Health Check Endpoints
+
+### Hyperion-NG
+
+```
+Ping: ws://{HYPERION_HOST}:{HYPERION_PORT}/
+```
+
+### LedFx
+
+```
+GET http://{LEDFX_HOST}:{LEDFX_PORT}/api/virtuals
+```

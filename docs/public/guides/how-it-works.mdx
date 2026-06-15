@@ -1,0 +1,55 @@
+---
+title: "How It Works"
+description: "Understanding the HyperFx sync cycle"
+icon: "circle"
+---
+
+HyperFx runs a `continuous_sync_loop()` that repeats the following cycle:
+
+## Sync Cycle
+
+1. **WebSocket connection** to Hyperion-NG's `ledcolors` stream
+2. **Collect** `COLOR_SAMPLES` individual LED data frames
+3. **Calculate** a weighted running average (recent samples weighted higher)
+4. **Enhance** dark colors (configurable boost for dim content)
+5. **Apply** minimum brightness floor (daylight visibility guard)
+6. **Send** the final RGB triplet as an Energy effect to LedFx
+7. **Wait** `REFRESH_RATE` seconds, then repeat
+
+Updates are skipped if the color has not changed since the last cycle (reduces unnecessary API calls).
+
+## Sequence Diagram
+
+```
+Screen Content  →  Hyperion-NG
+                       │
+                       │ WebSocket (ledstream-start)
+                       ▼
+                    HyperFx
+                       │
+                       │ Collect COLOR_SAMPLES frames
+                       │ Calculate weighted average
+                       │ Enhance dark colors
+                       │ Apply min brightness floor
+                       │
+                       │ POST /api/virtuals/{id}/effects
+                       ▼
+                     LedFx
+                       │
+                       ▼
+                   LED Strips
+```
+
+## Key Design Principles
+
+### Resilience over Speed
+Multiple fallback layers ensure the system never crashes on transient errors. If WebSocket fails, it falls back to REST API. If that fails, it gracefully skips the cycle.
+
+### Configuration over Code
+All tunable parameters are environment variables — no CLI flags, no hardcoded values (except effect type).
+
+### Observability
+Health checks every 60 seconds, human-readable color names in logs, debug toggle for detailed output.
+
+### Safety
+RGB values are clamped 0–255. A minimum brightness floor prevents complete blackout. Weighted averaging avoids outlier flicker.

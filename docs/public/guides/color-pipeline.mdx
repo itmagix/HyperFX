@@ -1,0 +1,75 @@
+---
+title: "Color Processing Pipeline"
+description: "How raw LED data becomes a color output"
+icon: "palette"
+---
+
+The signal chain in `RobustLedFxSync` transforms raw LED RGB triplets from Hyperion-NG into a processed color sent to LedFx.
+
+## Pipeline Stages
+
+### 1. `robust_extract_color()` — JSON Parse & Validate
+
+Each WebSocket message is parsed as JSON. The LED data is expected as a flat array of RGB triplets:
+
+```json
+{
+  "data": {
+    "leds": [R, G, B, R, G, B, ...]
+  }
+}
+```
+
+Validation checks that the array length is divisible by 3 (each LED has R, G, B). If valid, all LEDs in the frame are averaged to produce a single RGB triplet. Returns `None` if data is invalid.
+
+### 2. Collection Loop — Gather `COLOR_SAMPLES` Frames
+
+The sync loop collects `COLOR_SAMPLES` individual frame averages. Frames arrive at Hyperion-NG's capture rate. The loop has an 8-second maximum duration timeout.
+
+### 3. `robust_calculate_average()` — Weighted Average
+
+Samples are weighted so more recent frames contribute more to the final color:
+
+```
+Weights: [1, 2, 3, ..., N]
+```
+
+A flat-average fallback exists if the weighted calculation fails (e.g., on division by zero).
+
+### 4. `send_to_ledfx()` — Enhancement & Output
+
+The averaged color passes through two enhancement stages before being sent to LedFx.
+
+## Enhancement Algorithms
+
+### Dark Color Enhancement (`enhance_dark_colors`)
+
+If the max RGB channel is at or below `BRIGHTNESS_ENHANCE_THRESHOLD`, the color is boosted:
+
+```
+factor = 1.0 + ((threshold - maxChannel) / threshold) × (enhanceFactor - 1.0)
+```
+
+This means darker pixels are boosted proportionally more. A pixel at threshold gets no boost; a near-black pixel gets the full boost.
+
+| Threshold | Factor | Max Channel | Resulting Boost |
+|---|---|---|---|
+| 80 | 1.5 | 80 | 1.0× (no boost) |
+| 80 | 1.5 | 40 | 1.25× |
+| 80 | 1.5 | 10 | 1.4375× |
+| 80 | 1.5 | 0 | 1.5× (full boost) |
+
+### Minimum Brightness Floor
+
+When `MIN_BRIGHTNESS > 0` and the brightest channel is below it:
+
+- **Pure black** → warm white floor `(floor, floor, floor/2)`
+- **Dim color** → all channels scaled proportionally so the brightest equals `MIN_BRIGHTNESS`
+
+### Safety Floor
+
+Even when `MIN_BRIGHTNESS=0`, pure black is always caught and set to `(3, 3, 6)` — a barely visible warm dim. This prevents LedFx from receiving a zero-signal blackout.
+
+### Color Name Resolution (`color_name`)
+
+Uses Euclidean distance in RGB space to find the nearest named CSS3 color. This is **logging only** — it does not affect the signal path.

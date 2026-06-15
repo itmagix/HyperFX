@@ -1,0 +1,70 @@
+---
+title: "Quick Start"
+description: "Get HyperFx running in 5 minutes"
+icon: "zap"
+sidebarTitle: "Quick Start"
+---
+
+## Prerequisites
+
+- Python 3.7+
+- [Hyperion-NG](https://hyperion-project.org/) running and capturing screen content
+- [LedFx](https://github.com/LedFx/LedFx) running with a virtual device configured
+
+## Install
+
+```bash
+# Clone the repo
+git clone <repo-url>
+cd hyperion-ng-ledfx-live-color-sync
+
+# Create a virtual environment (recommended)
+python -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure your environment
+cp dotenv-example .env
+# Edit .env with your host/IPs and preferences
+```
+
+## Configure Minimum `.env`
+
+```ini
+HYPERION_HOST=192.168.1.100
+HYPERION_PORT=8090
+LEDFX_HOST=192.168.1.100
+LEDFX_PORT=8888
+LEDFX_INSTANCE=hyperfx
+```
+
+<Note>
+  **Finding `LEDFX_INSTANCE`:** In LedFx web UI, create a virtual named `hyperfx` (Virtuals → Add Virtual). The URL slug becomes the instance name. Alternatively, list virtuals via `curl http://<ledfx-host>:8888/api/virtuals`.
+</Note>
+
+## Run
+
+```bash
+python hyperfx.py
+```
+
+Press **Ctrl+C** to stop. Logs are printed to stdout via [Loguru](https://github.com/Delgan/loguru).
+
+## Verify It's Working
+
+With the default `DEBUG=false` setting, you'll see output like:
+
+```
+✅ Sync cycle complete - Color: Crimson (#DC143C)
+✅ Sync cycle complete - Color: Navy (#000080)
+```
+
+Set `DEBUG=true` in your `.env` for per-frame detailed logging.
+
+## Next Steps
+
+- [Installation Guide](/getting-started/installation) — Docker, systemd, advanced setup
+- [Environment Variables](/configuration/environment-variables) — full config reference
+- [How It Works](/guides/how-it-works) — deep dive into the sync cycle

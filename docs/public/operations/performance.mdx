@@ -1,0 +1,55 @@
+---
+title: "Performance"
+description: "Latency budget, bottlenecks, and tuning guidelines"
+icon: "gauge"
+---
+
+## Typical Latency Budget
+
+| Stage | Time |
+|---|---|
+| WebSocket connection + ledstream-start | ~40–80ms (one-time) |
+| Per-frame LED data reception | ~8ms per sample |
+| Color extraction (JSON parse + average) | ~1ms per sample |
+| Weighted average + enhancement | <1ms |
+| LedFx REST POST | <20ms |
+
+## Bottlenecks
+
+### WebSocket Timeout
+The code waits up to 8 seconds for `COLOR_SAMPLES` frames during capture. Lower `COLOR_SAMPLES` and/or `REFRESH_RATE` for faster response.
+
+### Color Name Lookup
+Euclidean search across all CSS3 colors is called per-sample and per-update for logging. This is purely cosmetic and does not block the signal path.
+
+### REST Overhead
+~200 bytes per POST; HTTP keep-alive is used automatically by `requests`.
+
+## Tuning Guidelines
+
+| Goal | Adjustment |
+|---|---|
+| **Faster response** | Lower `COLOR_SAMPLES` (2–3), lower `REFRESH_RATE` (0.0167–0.05) |
+| **Smoother, stable colors** | Higher `COLOR_SAMPLES` (5–10), higher `REFRESH_RATE` (0.1–0.2) |
+| **Brighter output in bright rooms** | Increase `MIN_BRIGHTNESS` (80–120) |
+| **Better festival/dim video** | Enable `BRIGHTNESS_ENHANCE_ENABLE`, tune `THRESHOLD` and `FACTOR` |
+| **Less CPU** | Higher `REFRESH_RATE` (0.2+), lower `COLOR_SAMPLES` |
+| **Debug connection issues** | Set `DEBUG=true` for full logging with file/line info |
+
+## Resource Usage
+
+### CPU
+HyperFx is a single-threaded asyncio application. CPU usage is typically minimal (<5% on modern hardware) except during JSON parsing of large LED arrays.
+
+### Memory
+The application holds:
+- `COLOR_SAMPLES` × RGB triplets in memory during capture
+- Connection state for health tracking
+- No persistent caches or buffers
+
+Expected memory usage: ~15–30 MB RSS.
+
+### Network
+- **Inbound**: WebSocket frames from Hyperion-NG (typically <1 KB per frame)
+- **Outbound**: REST POSTs to LedFx (~200 bytes each)
+- **Frequency**: Controlled by `REFRESH_RATE` (default: 10 cycles/second)

@@ -1,0 +1,94 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "HyperFx",
+  "colors": {
+    "primary": "#6366f1",
+    "light": "#818cf8",
+    "dark": "#4f46e5"
+  },
+  "logo": {
+    "light": "/logo-light.svg",
+    "dark": "/logo-dark.svg"
+  },
+  "favicon": "/favicon.svg",
+  "topbarLinks": [
+    {
+      "name": "GitHub",
+      "url": "https://github.com/hyperion-ledfx-sync/hyperion-ng-ledfx-live-color-sync"
+    }
+  ],
+  "topbarCtaButton": {
+    "type": "link",
+    "name": "Get Started",
+    "url": "/getting-started/quickstart"
+  },
+  "anchors": [
+    {
+      "anchor": "GitHub",
+      "icon": "github",
+      "href": "https://github.com/hyperion-ledfx-sync/hyperion-ng-ledfx-live-color-sync"
+    }
+  ],
+  "navigation": {
+    "groups": [
+      {
+        "group": "Welcome",
+        "pages": ["index"]
+      },
+      {
+        "group": "Getting Started",
+        "icon": "rocket",
+        "pages": [
+          "getting-started/quickstart",
+          "getting-started/installation"
+        ]
+      },
+      {
+        "group": "Guides",
+        "icon": "book-open",
+        "pages": [
+          "guides/how-it-works",
+          "guides/architecture",
+          "guides/color-pipeline",
+          "guides/fallback-strategy"
+        ]
+      },
+      {
+        "group": "Configuration",
+        "icon": "sliders",
+        "pages": [
+          "configuration/environment-variables",
+          "configuration/reference"
+        ]
+      },
+      {
+        "group": "API Reference",
+        "icon": "square-terminal",
+        "pages": [
+          "api/contracts"
+        ]
+      },
+      {
+        "group": "Operations",
+        "icon": "activity",
+        "pages": [
+          "operations/performance",
+          "operations/troubleshooting"
+        ]
+      },
+      {
+        "group": "Development",
+        "icon": "code",
+        "pages": [
+          "development/guide"
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/hyperion-ledfx-sync/hyperion-ng-ledfx-live-color-sync"
+    }
+  }
+}

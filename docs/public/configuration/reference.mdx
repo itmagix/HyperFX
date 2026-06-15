@@ -1,0 +1,55 @@
+---
+title: "Configuration Reference"
+description: "Detailed reference for all configurable parameters and their defaults"
+icon: "book-text"
+sidebarTitle: "Reference"
+---
+
+## Complete Variable Summary
+
+| Variable | Default | Clamped | Required |
+|---|---|---|---|
+| `HYPERION_HOST` | — | — | ✅ |
+| `HYPERION_PORT` | `8090` | — | |
+| `LEDFX_HOST` | — | — | ✅ |
+| `LEDFX_PORT` | `8888` | — | |
+| `LEDFX_INSTANCE` | `hyperfx` | — | |
+| `REFRESH_RATE` | `0.1` | 0.01–2.0 | |
+| `COLOR_SAMPLES` | `3` | — | |
+| `BRIGHTNESS` | `1.0` | — | |
+| `MIN_BRIGHTNESS` | `0` | 0–255 | |
+| `BRIGHTNESS_ENHANCE_ENABLE` | `true` | — | |
+| `BRIGHTNESS_ENHANCE_THRESHOLD` | `80` | 0–255 | |
+| `BRIGHTNESS_ENHANCE_FACTOR` | `1.5` | 1.0–3.0 | |
+| `DEBUG` | `false` | — | |
+
+## Hardcoded Values
+
+The following values are not configurable via environment variables and require code changes to modify:
+
+| Value | Location | Current Setting |
+|---|---|---|
+| Hyperion-NG instance | `robust_sync_functional()` | `instance: 1` |
+| Background brightness | `send_to_ledfx()` | `0.1` |
+| Intensity | `send_to_ledfx()` | `1.0` |
+| Effect type | `send_to_ledfx()` | `"energy"` |
+| Max WebSocket duration | `robust_capture_colors()` | `8.0` seconds |
+| Health check interval | `continuous_sync_loop()` | `60` seconds |
+| Safety floor (black) | `send_to_ledfx()` | `(3, 3, 6)` |
+
+## Configuration Lifecycle
+
+Configuration is read once at startup from `.env` (via `python-dotenv`). To apply changes:
+
+1. Edit your `.env` file
+2. Restart HyperFx
+
+There is no hot-reload support. All values are read in `RobustLedFxSync.__init__()`.
+
+## Validation Behavior
+
+Invalid values are handled gracefully:
+
+- **`REFRESH_RATE`**: Invalid values (non-numeric, out-of-range) fall back to `0.1` with a warning
+- **`COLOR_SAMPLES`**: Invalid values fall back to `10` with a warning
+- **Range clamping**: `REFRESH_RATE` is clamped 0.01–2.0, enhancement threshold 0–255, enhancement factor 1.0–3.0

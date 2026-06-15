@@ -1,0 +1,119 @@
+---
+title: "Development Guide"
+description: "Setting up a development environment and extending HyperFx"
+icon: "code"
+---
+
+## Development Environment
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+## Code Map
+
+```
+hyperion-ng-ledfx-live-color-sync/
+├── hyperfx.py              # Main application (single file, ~787 lines)
+├── requirements.txt        # Python dependencies
+├── dotenv-example          # Documented .env template with all options
+├── .env                    # Your local configuration (gitignored)
+├── LICENSE                 # MIT License
+├── README.md               # Project documentation
+├── AGENTS.md               # LLM agent context
+├── SKILLS.md               # Skills and domain knowledge
+├── hyperfx.code-workspace  # VS Code workspace file
+└── docs/
+    ├── installation-setup.md        # Setup guide
+    ├── troubleshooting.md           # Diagnostic procedures
+    ├── performance-optimization.md  # Optimization strategies
+    ├── ai-implementation-guide.md   # AI integration concepts
+    ├── genai-integration.md         # GenAI ideas
+    ├── architecture-decisions/
+    │   └── websocket-vs-rest-api.md # Architecture Decision Record
+    ├── internal/
+    │   ├── ROADMAP.md               # Project roadmap
+    │   ├── AI-INTEGRATION.md        # AI integration details
+    │   └── ML-TRAINING-PIPELINE.md  # ML training pipeline
+    └── public/                      # Mintlify documentation site
+```
+
+## One-Shot Sync Test
+
+Test the sync pipeline without running the full loop:
+
+```python
+import asyncio
+from hyperfx import robust_functional_sync
+
+result = asyncio.run(robust_functional_sync())
+print(result)
+```
+
+## Class Overview
+
+### `RobustLedFxSync`
+
+The entire application lives in this single class.
+
+| Method | Description |
+|---|---|
+| `__init__()` | Loads env vars, configures logging, sets up health tracking |
+| `continuous_sync_loop()` | Main infinite loop — sync → send → sleep |
+| `robust_sync_functional()` | WebSocket connection → capture pipeline |
+| `robust_capture_colors(ws)` | Collect `COLOR_SAMPLES` frames, calculate running avg |
+| `robust_extract_color(msg)` | Parse JSON → average LED RGB triplets |
+| `robust_calculate_average(colors)` | Weighted average (recent samples weighted higher) |
+| `final_robust_capture()` | REST fallback via `serverinfo` JSON-RPC |
+| `direct_api_approach()` | Delegates to `final_robust_capture` |
+| `send_to_ledfx(rgb_color)` | Apply enhancement → POST Energy effect to LedFx |
+| `enhance_dark_colors(rgb)` | Boost dim colors proportional to darkness |
+| `color_name(color_rgb)` | Euclidean nearest CSS3 color name (logging only) |
+| `_health_check()` | Ping both services, log status every 60s |
+
+## Common Modifications
+
+### Adding a New Env Var
+
+1. Add `os.environ.get('VAR_NAME', 'default')` in `__init__()`
+2. Add validation/clamping immediately after
+3. Update `dotenv-example` with documentation
+4. Update `README.md` config table
+
+### Changing the LedFx Effect Type
+
+Modify the `color_data` dict in `send_to_ledfx()`:
+
+```python
+color_data = {
+    "type": "wavelength",           # Change effect type
+    "config": {
+        "color": "#RRGGBB",         # Adjust parameter names
+        "intensity": 1.0,
+        "speed": 1.0
+    }
+}
+```
+
+### Adding a New Effect Parameter
+
+Add to the `config` dict in `send_to_ledfx()`. LedFx accepts effect-specific parameters.
+
+## Known Limitations
+
+- **Single Hyperion-NG instance** hardcoded (`instance: 1`)
+- **Only Energy effect type** — hardcoded in `send_to_ledfx()`
+- **No audio reactivity** — HyperFx sends the average color; LedFx's Energy effect handles audio independently
+- **No adaptive refresh** — refresh rate is fixed; no dynamic FPS adjustment
+
+## Dependencies
+
+| Package | Purpose |
+|---|---|
+| `websockets` | Hyperion-NG LED stream (WebSocket client) |
+| `requests` | LedFx REST API + Hyperion-NG JSON-RPC fallback |
+| `loguru` | Structured logging with colors and levels |
+| `webcolors` | RGB → CSS3 color name resolution (logging only) |
+| `python-dotenv` | `.env` file loading |

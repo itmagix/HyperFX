@@ -1,0 +1,100 @@
+---
+title: "Environment Variables"
+description: "Complete reference for all configurable environment variables"
+icon: "settings"
+sidebarTitle: "Environment Variables"
+---
+
+All configuration is via environment variables (`.env` file). Create a `.env` file by copying `dotenv-example`.
+
+```bash
+cp dotenv-example .env
+```
+
+<Note>
+  The `.env` file is gitignored — your credentials stay local. The `dotenv-example` file serves as a documented template.
+</Note>
+
+---
+
+## Connection
+
+| Variable | Default | Description |
+|---|---|---|
+| `HYPERION_HOST` | *(required)* | Hyperion-NG server IP/hostname |
+| `HYPERION_PORT` | `8090` | Hyperion-NG JSON API / WebSocket port |
+| `LEDFX_HOST` | *(required)* | LedFx server IP/hostname |
+| `LEDFX_PORT` | `8888` | LedFx REST API port |
+| `LEDFX_INSTANCE` | `hyperfx` | LedFx virtual device URL slug |
+
+---
+
+## Sync Timing
+
+| Variable | Default | Description |
+|---|---|---|
+| `REFRESH_RATE` | `0.1` | Seconds between sync cycles. Clamped to 0.01–2.0. |
+| `COLOR_SAMPLES` | `3` | LED data frames collected per sync cycle. Higher = smoother but slower to respond. |
+
+### Refresh Rate Examples
+
+| `REFRESH_RATE` | Effective FPS | Use Case |
+|---|---|---|
+| 0.0167 | ≈60 | Responsive gaming |
+| 0.0333 | ≈30 | General video |
+| 0.05 | ≈20 | Balanced |
+| 0.1 | ≈10 | Gentle on CPU (default) |
+
+---
+
+## Brightness & Enhancement
+
+| Variable | Default | Range | Description |
+|---|---|---|---|
+| `BRIGHTNESS` | `1.0` | 0.0–1.0 | Master brightness sent in the Energy effect payload |
+| `MIN_BRIGHTNESS` | `0` | 0–255 | Minimum brightness floor. When the captured color is dimmer than this floor (measured by max channel), all channels are scaled up proportionally preserving hue. Pure black becomes a warm-white floor. |
+| `BRIGHTNESS_ENHANCE_ENABLE` | `true` | `true`/`false` | Enable dark-color brightness boost for dim content |
+| `BRIGHTNESS_ENHANCE_THRESHOLD` | `80` | 0–255 | Max channel value below which enhancement kicks in |
+| `BRIGHTNESS_ENHANCE_FACTOR` | `1.5` | 1.0–3.0 | Brightening multiplier. Darker pixels are boosted proportionally more. |
+
+### MIN_BRIGHTNESS Quick Reference
+
+| Value | Environment |
+|---|---|
+| 0 | Dark room / home theater — original colors preserved |
+| 30–80 | Dim indoor lighting — gentle floor |
+| 80–120 | **Living room / daylight / parties** (recommended start) |
+| 120–180 | Bright room / near windows |
+| 180–255 | Not recommended — washes out color variation |
+
+---
+
+## Logging
+
+| Variable | Default | Description |
+|---|---|---|
+| `DEBUG` | `false` | `true` = detailed per-file/line debug logging; `false` = concise INFO-level |
+
+---
+
+## LedFx Effect Configuration (hardcoded)
+
+```json
+{
+  "type": "energy",
+  "config": {
+    "color_high": "#RRGGBB",
+    "color_mids": "#RRGGBB",
+    "color_lows": "#RRGGBB",
+    "brightness": 1.0,
+    "background_brightness": 0.1,
+    "intensity": 1.0
+  }
+}
+```
+
+All three color channels receive the same hex value (monochromatic Energy effect).
+
+<Warning>
+  `BACKGROUND_BRIGHTNESS` (0.1) and `INTENSITY` (1.0) are **hardcoded** — they are NOT configurable via environment variables, despite what some legacy documentation states.
+</Warning>

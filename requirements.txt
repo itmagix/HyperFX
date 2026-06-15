@@ -1,0 +1,7 @@
+# Core dependencies for Hyperion-NG API Color Sync Solution
+# Lightweight, reliable HTTP-based approach
+requests>=2.33.0
+python-dotenv>=1.2.2
+websockets
+loguru>=0.7.0
+webcolors>=25.10.0

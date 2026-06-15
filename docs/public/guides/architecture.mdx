@@ -1,0 +1,88 @@
+---
+title: "Architecture"
+description: "System design and component topology"
+icon: "building-2"
+---
+
+## Component Topology
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│                 │     │                 │     │                 │
+│  Hyperion-NG    │◄────│    HyperFx      │────►│     LedFx       │
+│  (Port 8090)    │     │  (hyperfx.py)   │     │  (Port 8888)    │
+│                 │     │                 │     │                 │
+│  Capture Layer  │     │  Bridge Layer   │     │  Effect Layer   │
+└─────────────────┘     └─────────────────┘     └───────┬─────────┘
+                                                         │
+                                                         ▼
+                                                  ┌─────────────────┐
+                                                  │                 │
+                                                  │   LED Strips    │
+                                                  │                 │
+                                                  │     Output      │
+                                                  └─────────────────┘
+```
+
+### Capture Layer (Hyperion-NG)
+- Captures screen content via HDMI capture or software frame grab
+- Analyzes each frame to determine LED color values
+- Provides real-time LED color stream via WebSocket protocol
+- Also exposes a JSON-RPC API for fallback queries
+
+### Bridge Layer (HyperFx)
+- Single-file Python application running an async event loop
+- Connects to Hyperion-NG WebSocket for color data
+- Processes colors through a configurable pipeline
+- Pushes processed colors to LedFx via REST API
+- Performs health checks on both services every 60 seconds
+
+### Effect Layer (LedFx)
+- Audio-reactive LED effects engine
+- Receives color data via REST API
+- Applies the Energy effect using received colors
+- Drives physical LED strips connected via WLED or similar controllers
+
+## Data Flow
+
+```
+WebSocket Connect
+      │
+      ▼
+ledstream-start Command
+      │
+      ▼
+LED RGB Triplets Stream ──────────────► Sample 1
+      │                                    │
+      │                                    ▼
+      │                                Sample 2
+      │                                    │
+      │                                    ▼
+      │                                Sample N
+      │                                    │
+      │                                    ▼
+      │                            Weighted Average
+      │                                    │
+      │                                    ▼
+      │                           Dark Color Enhancement
+      │                                    │
+      │                                    ▼
+      │                            Min Brightness Floor
+      │                                    │
+      │                                    ▼
+      │                           LedFx REST Energy Effect
+      │                                    │
+      │                                    ▼
+      │                               Success? ──► Log ✅
+      │                                    │
+      │                                    ▼
+      │                                Log ⚠️
+```
+
+## Entry Points
+
+| Call | Description |
+|---|---|
+| `main()` | Application entry — instantiates `RobustLedFxSync` and starts `continuous_sync_loop()` |
+| `robust_functional_sync()` | Standalone one-shot sync test (useful for debugging) |
+| `setup_logging()` | Configures Loguru based on `DEBUG` env var |

@@ -1,0 +1,273 @@
+---
+title: "Installation"
+description: "Complete setup guide covering prerequisites, virtual environments, Docker, systemd, and network topologies"
+icon: "download"
+---
+
+## Prerequisites
+
+```bash
+# Verify Python 3.7+ is installed
+python --version
+
+# Verify pip is available
+pip --version
+```
+
+### System Requirements
+
+| Requirement | Minimum | Recommended |
+|---|---|---|
+| OS | Linux, macOS, Windows | Linux (for stability) |
+| Python | 3.7 | 3.9+ |
+| RAM | 64 MB | 256 MB+ |
+| Network | Local connectivity | Gigabit ethernet |
+| Storage | 10 MB | 50 MB |
+
+## Quick Install
+
+```bash
+# Clone the repo
+git clone <repository-url>
+cd hyperion-ng-ledfx-live-color-sync
+
+# Create and activate virtual environment (recommended)
+python -m venv .venv
+
+# Linux/macOS
+source .venv/bin/activate
+
+# Windows
+# .venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Create your configuration
+cp dotenv-example .env
+# Edit .env with your server IPs and preferences
+```
+
+### Requirements
+
+```
+websockets>=12.0
+requests>=2.31.0
+loguru>=0.7.2
+webcolors>=1.13
+python-dotenv>=1.0.0
+```
+
+### One-Minute Configuration
+
+Minimal `.env`:
+
+```ini
+HYPERION_HOST=192.168.1.100
+HYPERION_PORT=8090
+LEDFX_HOST=192.168.1.100
+LEDFX_PORT=8888
+LEDFX_INSTANCE=hyperfx
+```
+
+**Find your LedFx virtual device ID:**
+
+```bash
+curl http://localhost:8888/api/virtuals
+# Look for "id" field — that's your LEDFX_INSTANCE value
+```
+
+**Create a HyperFx virtual in LedFx:**
+
+1. Open LedFx web UI (http://localhost:8888)
+2. Navigate to **Virtuals** section
+3. Click **Add Virtual**
+4. Name it `hyperfx` (or match your `LEDFX_INSTANCE`)
+5. Add two output channels (left/right) for stereo mapping
+
+### Test and Launch
+
+```bash
+# Quick connectivity test
+python -c "
+import requests
+r = requests.get('http://localhost:8888/api/virtuals', timeout=5)
+assert r.status_code == 200
+print('✓ LedFx reachable, virtuals:', len(r.json()))
+"
+
+# Start synchronization
+python hyperfx.py
+```
+
+### Verify It's Working
+
+Expected output:
+
+```
+✅ | Health: 0 syncs, 0 errors | Hyperion: True | LedFx: True
+🎯 HyperFx active (3cs - 10fps) - Press Ctrl+C to stop
+🎯 Color: red (255, 0, 0)
+✅ LedFx updated: red (enhanced: [100, 0, 0] → [150, 0, 0])
+```
+
+Use `DEBUG=true` in `.env` for per-frame detailed logging.
+
+---
+
+## Docker Setup
+
+Run HyperFx in a container for isolation and easy deployment.
+
+```bash
+# Build the image
+docker build -t hyperfx .
+
+# Run with environment file
+docker run -d \
+  --name hyperfx \
+  --restart unless-stopped \
+  --env-file .env \
+  hyperfx
+```
+
+### Dockerfile
+
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY hyperfx.py .
+COPY dotenv-example .env
+CMD ["python", "hyperfx.py"]
+```
+
+---
+
+## Systemd Service (Linux)
+
+Run HyperFx as a system service with auto-restart.
+
+```ini
+# /etc/systemd/system/hyperfx.service
+[Unit]
+Description=HyperFx Hyperion-NG to LedFx Sync
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hyperfx
+WorkingDirectory=/opt/hyperfx
+EnvironmentFile=/opt/hyperfx/.env
+ExecStart=/opt/hyperfx/.venv/bin/python /opt/hyperfx/hyperfx.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo cp hyperfx.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable hyperfx
+sudo systemctl start hyperfx
+sudo systemctl status hyperfx
+```
+
+---
+
+## Network Topologies
+
+### Same Host (All on one machine)
+
+```
+localhost:8090 → HyperFx → localhost:8888
+```
+
+```ini
+HYPERION_HOST=localhost
+HYPERION_PORT=8090
+LEDFX_HOST=localhost
+LEDFX_PORT=8888
+```
+
+### Same Network
+
+All services on the same LAN with static IPs.
+
+```
+192.168.1.10:8090 → HyperFx → 192.168.1.20:8888
+```
+
+```ini
+HYPERION_HOST=192.168.1.50
+HYPERION_PORT=8090
+LEDFX_HOST=192.168.1.100
+LEDFX_PORT=8888
+```
+
+### Separate Networks
+
+HyperFx bridges two subnets (requires firewall rules).
+
+```
+10.0.1.5:8090 → HyperFx → 10.0.2.10:8888
+```
+
+---
+
+## Service Verification
+
+### Hyperion-NG
+
+```bash
+# Verify Hyperion is running
+curl http://localhost:8090/json-rpc \
+  -H "Content-Type: application/json" \
+  -d '{"command":"serverinfo"}'
+
+# Test WebSocket LED stream
+python -c "
+import asyncio, websockets, json
+
+async def test():
+    async with websockets.connect('ws://localhost:8090') as ws:
+        await ws.send(json.dumps({'command':'ledcolors','subcommand':'ledstream-start','instance':1,'tan':1}))
+        data = await ws.recv()
+        print('✓ Color data received:', len(data), 'bytes')
+
+asyncio.run(test())
+"
+```
+
+### LedFx
+
+```bash
+# List available virtual devices
+curl -s http://localhost:8888/api/virtuals | python -m json.tool
+
+# Expected output:
+# [{"id": "hyperfx", "name": "HyperFx Virtual", ...}]
+
+# Test direct device control
+curl -X POST "http://localhost:8888/api/virtuals/hyperfx/effects" \
+  -H "Content-Type: application/json" \
+  -d '{"type":"energy","config":{"color_high":"#FF0000","color_mids":"#FF0000","color_lows":"#FF0000","brightness":1.0,"background_brightness":0.1,"intensity":1.0}}'
+```
+
+---
+
+## Verification Checklist
+
+After installation:
+
+- [ ] Hyperion-NG responds to `curl` on configured host:port
+- [ ] LedFx web UI is accessible and shows virtuals
+- [ ] LedFx virtual device ID matches `LEDFX_INSTANCE`
+- [ ] All pip dependencies installed without errors
+- [ ] `.env` file is present and contains valid values
+- [ ] `python hyperfx.py` starts and logs sync messages
+- [ ] Health check shows both services connected (after 60s)
