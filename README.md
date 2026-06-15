@@ -120,17 +120,7 @@ hyperion-ng-ledfx-live-color-sync/
 ├── LICENSE                 # MIT License
 ├── hyperfx.code-workspace  # VS Code workspace file
 └── docs/
-    ├── internal/                    # Internal / dev-only documentation
-    │   ├── AI-IMPLEMENTATION-GUIDE.md    # AI/LLM integration concepts
-    │   ├── AI-INTEGRATION.md             # AI integration details
-    │   ├── GENAI-INTEGRATION.md          # GenAI integration ideas
-    │   ├── LEGACY-README.md              # Legacy doc archive index
-    │   ├── ML-TRAINING-PIPELINE.md       # ML training pipeline
-    │   ├── PERFORMANCE-OPTIMIZATION.md   # Future optimization strategies
-    │   ├── ROADMAP.md                    # Project roadmap
-    │   └── architecture-decisions/
-    │       └── websocket-vs-rest-api.md  # ADR: WS vs REST for LedFx
-    └── public/                      # Mintlify documentation site (user-facing)
+    └── public/ 
         ├── docs.json
         ├── index.mdx
         ├── getting-started/
@@ -548,8 +538,6 @@ hyperfx.py
 |---|---|---|
 | [`docs/public/getting-started/installation.mdx`](docs/public/getting-started/installation.mdx) | Full setup guide (Docker, systemd, network topologies) |
 | [`docs/public/operations/troubleshooting.mdx`](docs/public/operations/troubleshooting.mdx) | Diagnostic flowchart, component isolation tests, error resolutions |
-| [`docs/internal/architecture-decisions/websocket-vs-rest-api.md`](docs/internal/architecture-decisions/websocket-vs-rest-api.md) | ADR explaining REST choice for LedFx integration |
-| [`docs/internal/PERFORMANCE-OPTIMIZATION.md`](docs/internal/PERFORMANCE-OPTIMIZATION.md) | Optimization strategies (vectorized processing, adaptive FPS, connection pooling) |
 | [`dotenv-example`](dotenv-example) | Documented `.env` template with all variables, defaults, and recommendations |
 
 ---
