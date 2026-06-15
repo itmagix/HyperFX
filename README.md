@@ -583,4 +583,4 @@ color_data = {
 
 MIT — see [LICENSE](LICENSE).
 
-Copyright (c) 2026 Hyperion-LedFx-WLED Sync Contributors
+Copyright (c) 2026 IT MAG!X - HyperFX
