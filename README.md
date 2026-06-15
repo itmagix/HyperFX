@@ -1,4 +1,4 @@
-# HyperFx — Hyperion-NG → LedFx Live Color Sync
+# HyperFx - Hyperion-NG → LedFx Live Color Sync
 
 **HyperFx** is a real-time bridge that captures LED color data from **Hyperion-NG** (ambilight) and forwards it to **LedFx** virtual devices for synchronized ambient lighting. It continuously reads Hyperion-NG's LED color stream over WebSocket, applies configurable color processing (sampling, averaging, brightness enhancement), and pushes the result as an Energy effect to LedFx via REST API.
 
